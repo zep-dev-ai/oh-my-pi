@@ -1,0 +1,38 @@
+name: Sync fork with upstream
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour, on the hour (UTC)
+  workflow_dispatch: {}    # manual trigger from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    # Only run in the fork, never in upstream itself (in case this file
+    # ever gets merged back via a PR).
+    if: github.repository != 'can1357/oh-my-pi'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add upstream remote
+        run: git remote add upstream https://github.com/can1357/oh-my-pi.git
+
+      - name: Fetch upstream
+        run: git fetch upstream main
+
+      - name: Fast-forward main to upstream
+        run: |
+          set -euo pipefail
+          git checkout main
+          # Fast-forward only. If this fails, your fork's main has diverged
+          # (local commits) and needs manual merge/rebase — the workflow
+          # will just fail loudly rather than force-pushing over your work.
+          git merge --ff-only upstream/main
+          git push origin main
